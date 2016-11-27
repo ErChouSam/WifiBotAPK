@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:paddingBottom="@dimen/activity_vertical_margin"
+    android:paddingLeft="@dimen/activity_horizontal_margin"
+    android:paddingRight="@dimen/activity_horizontal_margin"
+    android:paddingTop="@dimen/activity_vertical_margin"
+    app:layout_behavior="@string/appbar_scrolling_view_behavior"
+    tools:context="com.example.erchousam.wifibotapk.SecondActivity"
+    tools:showIn="@layout/activity_second">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Connexion"
+        android:id="@+id/textView2"
+        android:layout_alignParentTop="true"
+        android:layout_centerHorizontal="true"
+        android:textSize="25dp" />
+
+    <EditText
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/AdressIP"
+        android:layout_marginTop="67dp"
+        android:text="192.168.1.5"
+        android:layout_below="@+id/textView2"
+        android:layout_toLeftOf="@+id/Valider"
+        android:layout_toStartOf="@+id/Valider" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Adresse IP"
+        android:id="@+id/textView3"
+        android:layout_alignLeft="@+id/AdressIP"
+        android:layout_alignStart="@+id/AdressIP"
+        android:layout_toLeftOf="@+id/Valider"
+        android:layout_toStartOf="@+id/Valider"
+        android:textAlignment="center"
+        android:layout_above="@+id/Port" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Port"
+        android:id="@+id/textView4"
+        android:textAlignment="center"
+        android:layout_above="@+id/Port"
+        android:layout_toRightOf="@+id/textView2"
+        android:layout_toEndOf="@+id/textView2" />
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Valider"
+        android:id="@+id/Valider"
+        android:layout_marginTop="29dp"
+        android:layout_below="@+id/AdressIP"
+        android:layout_centerHorizontal="true" />
+
+    <EditText
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:inputType="number"
+        android:ems="10"
+        android:id="@+id/Port"
+        android:text="15020"
+        android:layout_above="@+id/Valider"
+        android:layout_toRightOf="@+id/Valider"
+        android:layout_toEndOf="@+id/Valider"
+        android:layout_marginRight="70dp" />
+</RelativeLayout>

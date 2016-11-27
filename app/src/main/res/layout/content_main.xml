@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:paddingBottom="@dimen/activity_vertical_margin"
+    android:paddingLeft="@dimen/activity_horizontal_margin"
+    android:paddingRight="@dimen/activity_horizontal_margin"
+    android:paddingTop="@dimen/activity_vertical_margin"
+    app:layout_behavior="@string/appbar_scrolling_view_behavior"
+    tools:context="com.example.erchousam.wifibotapk.MainActivity"
+    tools:showIn="@layout/activity_main">
+
+    <ImageButton
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/TopButton"
+        android:background="@drawable/top"
+        android:layout_above="@+id/RightButton"
+        android:layout_toRightOf="@+id/LeftButton"
+        android:layout_toEndOf="@+id/LeftButton" />
+
+    <ImageButton
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/LeftButton"
+        android:background="@drawable/left"
+        android:layout_marginBottom="135dp"
+        android:layout_alignParentBottom="true"
+        android:layout_toLeftOf="@+id/BotButton"
+        android:layout_toStartOf="@+id/BotButton" />
+
+    <ImageButton
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/RightButton"
+        android:background="@drawable/right"
+        android:layout_alignTop="@+id/LeftButton"
+        android:layout_toRightOf="@+id/StopButton"
+        android:layout_toEndOf="@+id/StopButton" />
+
+    <ImageButton
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/BotButton"
+        android:background="@drawable/bot"
+        android:layout_below="@+id/RightButton"
+        android:layout_toLeftOf="@+id/RightButton"
+        android:layout_toStartOf="@+id/RightButton" />
+
+    <ImageButton
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/StopButton"
+        android:background="@drawable/stop"
+        android:layout_below="@+id/TopButton"
+        android:layout_centerHorizontal="true" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Disconnected"
+        android:id="@+id/Status"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentStart="true"
+        android:textStyle="bold"
+        android:textColor="#ff0000"
+        android:textSize="15dp" />
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Connect/Disconnect"
+        android:id="@+id/ConnectionDisconnection"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentRight="true"
+        android:layout_alignParentEnd="true" />
+
+</RelativeLayout>

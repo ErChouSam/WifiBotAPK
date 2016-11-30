@@ -5,6 +5,8 @@ import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.SystemClock;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
@@ -35,16 +37,37 @@ public class MainActivity extends AppCompatActivity {
     Socket sock;                                      // Socket Client
     private View viewf;                               // View de la seconde activité
     public static int SERVERPORT = 15020;             // Port par defaut pour communiquer avec le wifibot
-    public static String SERVER_IP = "192.168.1.106"; // Adresse ip par defaut pour communiquer avec le wifibot
+    public static String SERVER_IP = "192.168.43.26"; // Adresse ip par defaut pour communiquer avec le wifibot
     TextView state ;                                  // Creation d'un Objet TextView
     Button ConnectionDisconnection;                   // Creation d'un Objet Boutton
-    ImageButton TopArrow ;                            // Creation d'un Objet ImageButton
-    ImageButton LeftArrow ;                           // Creation d'un Objet ImageButton
-    ImageButton RightArrow ;                          // Creation d'un Objet ImageButton
-    ImageButton BottomArrow ;                         // Creation d'un Objet ImageButton
+    // Creation des Objet ImageButton
+    ImageButton TopArrow ;
+    ImageButton LeftArrow ;
+    ImageButton RightArrow ;
+    ImageButton BottomArrow ;
+    ImageButton StopButton ;
     boolean sockTrueFalse = false;                    // Test si la socket est connecter ou deconnecter
     Thread Thread1 = null;                            // Thread de connection/deconnection
-    final byte[] StopFrame = new byte[]{(byte)0xFF, 0x07, 0x00, 0x00, 0x00, 0x00,(byte)0xF1, (byte)0xC0, 0x28};// Trame a envoyer pour arreter le robot
+    Thread ThreadMove = null;
+
+    //Boolean pour connaitre l'etat du thread et le commander
+    boolean stateRightThread = true;
+    boolean stateLeftThread = true;
+    boolean stateTopThread = true;
+    boolean stateBotThread = true;
+
+    //Trame a envoyer pour ralentir et arreter le wifibot
+
+    final byte[] StopFrameHigh = new byte[]{(byte)0xFF, 0x07, 0x1E, 0x00, 0x1E, 0x00,(byte)0xF1, (byte)0x08, 0x2C};
+    final byte[] StopFrameMid = new byte[]{(byte)0xFF, 0x07, 0x14, 0x00, 0x14, 0x00,(byte)0xF1, (byte)0xB0, 0x2F};
+    final byte[] StopFrameLow = new byte[]{(byte)0xFF, 0x07, 0x0A, 0x00, 0x0A, 0x00,(byte)0xF1, (byte)0x78, 0x2B};
+    final byte[] StopFrameVeryLow = new byte[]{(byte)0xFF, 0x07, 0x00, 0x00, 0x00, 0x00,(byte)0xF1, (byte)0xC0, 0x28};
+    final byte[] StopFrame = new byte[]{(byte)0xFF, 0x07, 0x00, 0x00, 0x00, 0x00,(byte)0xF1, (byte)0xC0, 0x28};
+    final byte[] BStopFrameHigh = new byte[]{(byte)0xFF, 0x07, 0x1E, 0x00, 0x1E, 0x00,(byte)0xA1, (byte)0x08, 0x10};
+    final byte[] BStopFrameMid = new byte[]{(byte)0xFF, 0x07, 0x14, 0x00, 0x14, 0x00,(byte)0xA1, (byte)0xB0, 0x13};
+    final byte[] BStopFrameLow = new byte[]{(byte)0xFF, 0x07, 0x0A, 0x00, 0x0A, 0x00,(byte)0xA1, (byte)0x78, 0x17};
+    final byte[] BStopFrameVeryLow = new byte[]{(byte)0xFF, 0x07, 0x00, 0x00, 0x00, 0x00,(byte)0xA1, (byte)0x1C, 0x15};
+    final byte[] BStopFrame = new byte[]{(byte)0xFF, 0x07, 0x00, 0x00, 0x00, 0x00,(byte)0xF1, (byte)0xC0, 0x28};
 
 
 
@@ -54,7 +77,6 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
-
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -69,246 +91,206 @@ public class MainActivity extends AppCompatActivity {
         LeftArrow = (ImageButton)findViewById(R.id.LeftButton);                       // Instance du BouttonImage d'une fleche vers la gauche
         RightArrow = (ImageButton)findViewById(R.id.RightButton);                     // Instance du BouttonImage d'une fleche vers la droite
         BottomArrow = (ImageButton)findViewById(R.id.BotButton);                      // Instance du BouttonImage d'une fleche vers le bas
+        StopButton = (ImageButton)findViewById(R.id.StopButton) ;
         ConnectionDisconnection.setOnClickListener(new View.OnClickListener() {       // Ecoute du bouton ConnectDisconnect
             @Override
             public void onClick(View v) {
                 ConnectionDisconnection();
             }
         });
-        /*TopArrow.setOnLongClickListener(new View.OnLongClickListener() {
-            @Override
-            public boolean onLongClick(final View v) {
-                Thread thread = new Thread(new Runnable(){
 
+        RightArrow.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(final View v) {
+                stateRightThread = !stateRightThread;
+                ThreadMove = new Thread(new Runnable() {
                     @Override
                     public void run() {
-                        // TODO Auto-generated method stub
-                        while((v.isPressed()))
-                        {
-                            MovingForward(v);
+                        final byte[] Frame = new byte[]{(byte) 0xFF, 0x07, 0x1E, 0x00, 0x1E, 0x00, (byte) 0xE1, 0x09, (byte) 0xE0}; // Trame a envoyer au wifibot
+                        DataOutputStream out = null;
+                        try {
+                            out = new DataOutputStream(sock.getOutputStream());// Création d'un tuyau de communication
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                        while (!stateRightThread) {
+                            try {
+                                out.write(Frame);
+                                Thread.sleep(1500);
+                                out.flush();// Envoie de la Trame Stop au wifibot
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
                         }
                     }
                 });
-                thread.start();
-
-                return false;
+                if (stateRightThread)
+                {
+                    DataOutputStream out = null;
+                    ThreadMove = null;
+                    try {
+                        out = new DataOutputStream(sock.getOutputStream());// Création d'un tuyau de communication
+                        out.write(StopFrame);
+                        out.flush();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+                else
+                    ThreadMove.start();
             }
         });
-        BottomArrow.setOnLongClickListener(new View.OnLongClickListener() {
+        LeftArrow.setOnClickListener(new View.OnClickListener() {
             @Override
-            public boolean onLongClick(final View v) {
-                Thread thread = new Thread(new Runnable(){
-
+            public void onClick(final View v) {
+                final byte[] Frame = {(byte)0xff, 0x07, 0x1E, 0x00, 0x1E, 0x00,(byte)0xB1,0x09,(byte)0xDC}; // Trame a envoyer au wifibot
+                stateLeftThread = !stateLeftThread;
+                ThreadMove = new Thread(new Runnable() {
                     @Override
                     public void run() {
-                        // TODO Auto-generated method stub
-                        while((v.isPressed()))
-                        {
-                            MoveBack(v);
+                        DataOutputStream out = null;
+                        try {
+                            out = new DataOutputStream(sock.getOutputStream());// Création d'un tuyau de communication
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                        while (!stateLeftThread) {
+                            try {
+                                out.write(Frame);
+                                out.flush();// Envoie de la Trame Stop au wifibot
+                                Thread.sleep(1500);
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
                         }
                     }
                 });
-                thread.start();
-                return false;
+                if (stateLeftThread) {
+                    DataOutputStream out = null;
+                    ThreadMove = null;
+                    try {
+                        out = new DataOutputStream(sock.getOutputStream());// Création d'un tuyau de communication
+                        out.write(StopFrame);
+                        out.flush();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+                else
+                    ThreadMove.start();
             }
         });
-        LeftArrow.setOnLongClickListener(new View.OnLongClickListener() {
+        TopArrow.setOnClickListener(new View.OnClickListener() {
             @Override
-            public boolean onLongClick(final View v) {
-                Thread thread = new Thread(new Runnable(){
-
+            public void onClick(final View v) {
+                final byte[] Frame = {(byte)0xff, 0x07, 0x50, 0x00, 0x50, 0x00,(byte)0xF1,(byte)0x00,0x35}; // Trame a envoyer au wifibot
+                stateTopThread = !stateTopThread;
+                //final Handler TopHandler = new Handler();
+                ThreadMove = new Thread(new Runnable() {
                     @Override
                     public void run() {
-                        // TODO Auto-generated method stub
-                        while((v.isPressed()))
-                        {
-                            TurnLeft(v);
+                        DataOutputStream out = null;
+                        try {
+                            out = new DataOutputStream(sock.getOutputStream());// Création d'un tuyau de communication
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                        while (!stateTopThread) {
+                            try {
+                                out.write(Frame);
+                                out.flush();// Envoie de la Trame Stop au wifibot
+                                Thread.sleep(1500);
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
                         }
                     }
                 });
-                thread.start();
-                return false;
+                if (stateTopThread)
+                {
+                    ThreadMove = null;
+                    try {
+                        StopMotorForward();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+                else
+                    ThreadMove.start();
             }
         });
-        /*RightArrow.setOnLongClickListener(new View.OnLongClickListener() {
+        BottomArrow.setOnClickListener(new View.OnClickListener() {
             @Override
-            public boolean onLongClick(final View v) {
-                Thread thread = new Thread(new Runnable(){
-
+            public void onClick(final View v) {
+                final byte[] Frame = {(byte)0xff, 0x07, 0x50, 0x00, 0x50, 0x00,(byte)0xA1,(byte)0x00,(byte)0x09}; // Trame a envoyer au wifibot
+                stateBotThread = !stateBotThread;
+                ThreadMove = new Thread(new Runnable() {
                     @Override
                     public void run() {
-                        // TODO Auto-generated method stub
-                        while((v.isPressed()))
-                        {
-                            TurnRight(v);
+                        DataOutputStream out = null;
+                        try {
+                            out = new DataOutputStream(sock.getOutputStream());// Création d'un tuyau de communication
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                        while (!stateBotThread) {
+                            try {
+                                out.write(Frame);
+                                Thread.sleep(1500);
+                                out.flush();// Envoie de la Trame Stop au wifibot
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
                         }
                     }
                 });
-                thread.start();
-                return false;
-            }
-        });*/
-        RightArrow.setOnTouchListener(new View.OnTouchListener() { // Ecoute du BoutonImage Fleche droite
-            @Override
-            public boolean onTouch(View v, MotionEvent me) {
-                final byte[] Frame = new byte[]{(byte)0xFF, 0x07, 0x1E, 0x00, 0x1E, 0x00,(byte) 0xE1, 0x09, (byte)0xE0}; // Trame a envoyer au wifibot
-                switch (me.getAction()) {
-                    case MotionEvent.ACTION_DOWN: // Tant que l'on reste appuyé
-                        try {
-                            DataOutputStream out = new DataOutputStream(sock.getOutputStream()); // Création d'un tuyau de communication
-                            out.write(Frame);                                                    // Envoie de la Trame au wifibot
-                            out.flush();                                                         // Force tout les octects a être écrit
-                            out.close();                                                         // Ferme le tuyau de communication
-                        } catch (IOException e) {                                                // Exeption en cas d'erreur
-                            e.printStackTrace();
-                        }
-                        break;
-                    case MotionEvent.ACTION_UP: // Quand on relache
-                        try {
-                            DataOutputStream out = new DataOutputStream(sock.getOutputStream()); // Création d'un tuyau de communication
-                            out.write(StopFrame);                                                // Envoie de la Trame Stop au wifibot
-                            out.flush();
-                            out.close();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                        break;
+                if (stateBotThread)
+                {
+                    try {
+                        StopMotorBack();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    ThreadMove = null;
                 }
-                return false;
+                else
+                    ThreadMove.start();
             }
         });
-        LeftArrow.setOnTouchListener(new View.OnTouchListener() {
-            @Override
-            public boolean onTouch(View v, MotionEvent me) {
-                final byte[] Frame = {(byte)0xff, 0x07, 0x1E, 0x00, 0x1E, 0x00,(byte)0xB1,0x09,(byte)0xDC};
-                switch (me.getAction()) {
-                    case MotionEvent.ACTION_DOWN:
-                        try {
-                            DataOutputStream out = new DataOutputStream(sock.getOutputStream());
-                            out.write(Frame);
-                            out.flush();
-                            out.close();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                        break;
-                    case MotionEvent.ACTION_MOVE:
-                        try {
-                            DataOutputStream out = new DataOutputStream(sock.getOutputStream());
-                            out.write(Frame);
-                            out.flush();
-                            out.close();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                        //appuyé et bouge
-                        break;
-                    case MotionEvent.ACTION_UP:
-                        try {
-                            DataOutputStream out = new DataOutputStream(sock.getOutputStream());
-                            out.write(StopFrame);
-                            out.flush();
-                            out.close();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                        //relaché
-                        break;
-                }
-                return false;
-            }
-        });
-        TopArrow.setOnTouchListener(new View.OnTouchListener() {
-            @Override
-            public boolean onTouch(View v, MotionEvent me) {
-                final byte[] Frame = {(byte)0xff, 0x07, 0x50, 0x00, 0x50, 0x00,(byte)0xF1,(byte)0x00,0x35};
-                switch (me.getAction()) {
-                    case MotionEvent.ACTION_DOWN:
-                        //appuyé
-                        try {
-                            DataOutputStream out = new DataOutputStream(sock.getOutputStream());
-                            out.write(Frame);
-                            out.flush();
-                            out.close();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                        break;
-                    case MotionEvent.ACTION_MOVE:
-                        try {
-                            DataOutputStream out = new DataOutputStream(sock.getOutputStream());
-                            out.write(Frame);
-                            out.flush();
-                            out.close();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                        //appuyé et bouge
-                        break;
-                    case MotionEvent.ACTION_UP:
-                        try {
-                            DataOutputStream out = new DataOutputStream(sock.getOutputStream());
-                            out.write(StopFrame);           // write the messag
-                            out.flush();
-                            out.close();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                        //relaché
-                        break;
-                }
-                return false;
-            }
-        });
-        BottomArrow.setOnTouchListener(new View.OnTouchListener() {
-            @Override
-            public boolean onTouch(View v, MotionEvent me) {
-                final byte[] Frame = {(byte)0xff, 0x07, 0x50, 0x00, 0x50, 0x00,(byte)0xA1,(byte)0x00,0x09};
-                switch (me.getAction()) {
-                    case MotionEvent.ACTION_DOWN:
-                        //appuyé
-                        try {
-                            DataOutputStream out = new DataOutputStream(sock.getOutputStream());
-                            out.write(Frame);           // write the messag
-                            out.flush();
-                            out.close();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                        break;
-                    case MotionEvent.ACTION_MOVE:
-                        try {
-                            DataOutputStream out = new DataOutputStream(sock.getOutputStream());
-                            out.write(Frame);           // write the messag
-                            out.flush();
-                            out.close();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                        //appuyé et bouge
-                        break;
-                    case MotionEvent.ACTION_UP:
-                        try {
-                            DataOutputStream out = new DataOutputStream(sock.getOutputStream());
-                            out.write(StopFrame);           // write the messag
-                            out.flush();
-                            out.close();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                        //relaché
-                        break;
-                }
-                return false;
-            }
-        });
-       /* RightArrow.setOnClickListener(new View.OnClickListener() {
+        StopButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                TurnRight(v);
-            }
-        });*/
+                DataOutputStream out = null;
+                //Reset tout les boutons
+                if (!stateBotThread)
+                    stateBotThread = true;
+                if (!stateLeftThread)
+                    stateLeftThread = true;
+                if (!stateRightThread)
+                    stateRightThread = true;
+                if (!stateTopThread)
+                    stateTopThread = true;
+                try {
+                    out = new DataOutputStream(sock.getOutputStream());// Création d'un tuyau de communication
+                    out.write(StopFrame);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
 
+            }
+        });
     }
     public static void setServerPort(int port) // Accesseur pour le port
     {
@@ -350,6 +332,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void ConnectionDisconnection()
     {
+        //Connection ou decoonection SocketTCP
         Thread1 = new Thread(new Runnable() {
             @Override
             public void run() {
@@ -391,155 +374,7 @@ public class MainActivity extends AppCompatActivity {
         });
         Thread1.start();
     }
-    /*private void TurnRight(final View v)
-    {
-        final byte[] Frame = new byte[]{(byte)0xFF, 0x07, 0x1E, 0x00, 0x1E, 0x00,(byte) 0xE1, 0x09, (byte)0xE0};
-        /*Thread2 = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                // TODO Auto-generated method stub
-                try {
-                    while ((v.isPressed())) {
-                        try {
-                            DataOutputStream out = new DataOutputStream(sock.getOutputStream());
-                            out.write(Frame);           // write the messag
-                            out.close();
-                        } catch (UnknownHostException e) {
-
-                            e.printStackTrace();
-
-                        } catch (IOException e) {
-
-                            e.printStackTrace();
-
-                        } catch (Exception e) {
-
-                            e.printStackTrace();
-
-                        }
-                    }
-                }
-                catch (Exception e)
-                {
-
-                }
-            }
-        });
-        Thread2.start();*/
-
-    /*}
-    private void TurnLeft(final View v)
-    {
-        final byte[] Frame = {(byte)0xff, 0x07, 0x1E, 0x00, 0x1E, 0x00,(byte)0xB1,0x09,(byte)0xDC};
-        Thread2 = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                // TODO Auto-generated method stub
-                try {
-                    while ((v.isPressed())) {
-                        try {
-                            DataOutputStream out = new DataOutputStream(sock.getOutputStream());
-                            out.write(Frame);           // write the message
-                            out.flush();
-                            out.close();
-                        } catch (UnknownHostException e) {
-
-                            e.printStackTrace();
-
-                        } catch (IOException e) {
-
-                            e.printStackTrace();
-
-                        } catch (Exception e) {
-
-                            e.printStackTrace();
-
-                        }
-                    }
-                }
-                catch (Exception e)
-                {
-
-                }
-            }
-        });
-        Thread2.start();
-    }
-    private void MovingForward(final View v)
-    {
-        final byte[] Frame = {(byte)0xff, 0x07, 0x50, 0x00, 0x50, 0x00,(byte)0xF1,(byte)0x00,0x35};
-        Thread2 = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                // TODO Auto-generated method stub
-                try {
-                    while ((v.isPressed())) {
-                        try {
-                            DataOutputStream out = new DataOutputStream(sock.getOutputStream());
-                            out.write(Frame);           // write the message
-                            out.flush();
-                            out.close();
-                        } catch (UnknownHostException e) {
-
-                            e.printStackTrace();
-
-                        } catch (IOException e) {
-
-                            e.printStackTrace();
-
-                        } catch (Exception e) {
-
-                            e.printStackTrace();
-
-                        }
-                    }
-                }
-                catch (Exception e)
-                {
-
-                }
-            }
-        });
-        Thread2.start();
-    }
-    private void MoveBack(final View v)
-    {
-        final byte[] Frame = {(byte)0xff, 0x07, 0x50, 0x00, 0x50, 0x00,(byte)0xA1,(byte)0x00,0x09};
-        Thread2 = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                // TODO Auto-generated method stub
-                try {
-                    while ((v.isPressed())) {
-                        try {
-                            DataOutputStream out = new DataOutputStream(sock.getOutputStream());
-                            out.write(Frame);           // write the message
-                            out.flush();
-                            out.close();
-                        } catch (UnknownHostException e) {
-
-                            e.printStackTrace();
-
-                        } catch (IOException e) {
-
-                            e.printStackTrace();
-
-                        } catch (Exception e) {
-
-                            e.printStackTrace();
-
-                        }
-                    }
-                }
-                catch (Exception e)
-                {
-
-                }
-            }
-        });
-        Thread2.start();
-    }*/
-    private void setText(final TextView text,final String value,final int color){ // change la couleur et le text de la TextView
+    private void setText(final TextView text,final String value,final int color) { // change la couleur et le text de la TextView
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -547,6 +382,42 @@ public class MainActivity extends AppCompatActivity {
                 text.setTextColor(color);
             }
         });
+    }
+    private void StopMotorForward() throws IOException, InterruptedException {
+        DataOutputStream out = new DataOutputStream(sock.getOutputStream()); // Création d'un tuyau de communication
+        final Handler StopHandler = new Handler();
+        out.write(StopFrameHigh);
+        out.flush();// Envoie de la Trame Stop au wifibot
+        Thread.sleep(150);
+        out.write(StopFrameMid);
+        out.flush();// Envoie de la Trame Stop au wifibot
+        Thread.sleep(150);
+        out.write(StopFrameLow);
+        out.flush();// Envoie de la Trame Stop au wifibot
+        Thread.sleep(150);
+        out.write(StopFrameVeryLow);
+        out.flush();// Envoie de la Trame Stop au wifibot
+        Thread.sleep(150);
+        out.write(StopFrame);
+        out.flush();// Envoie de la Trame Stop au wifibot
+    }
+    private void StopMotorBack() throws IOException, InterruptedException {
+        DataOutputStream out = new DataOutputStream(sock.getOutputStream()); // Création d'un tuyau de communication
+        final Handler StopHandler = new Handler();
+        out.write(BStopFrameHigh);
+        out.flush();// Envoie de la Trame Stop au wifibot
+        Thread.sleep(150);
+        out.write(BStopFrameMid);
+        out.flush();// Envoie de la Trame Stop au wifibot
+        Thread.sleep(150);
+        out.write(BStopFrameLow);
+        out.flush();// Envoie de la Trame Stop au wifibot
+        Thread.sleep(150);
+        out.write(BStopFrameVeryLow);
+        out.flush();// Envoie de la Trame Stop au wifibot
+        Thread.sleep(150);
+        out.write(BStopFrame);
+        out.flush();// Envoie de la Trame Stop au wifibot
     }
 }
 
